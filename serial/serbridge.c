@@ -18,7 +18,7 @@
 static struct espconn serbridgeConn1; // plain bridging port
 static struct espconn serbridgeConn2; // programming port
 static esp_tcp serbridgeTcp1, serbridgeTcp2;
-static int8_t mcu_reset_pin, mcu_isp_pin;
+static int8_t mcu_reset_pin, mcu_isp_pin, mcu_reset_inverted;
 
 uint8_t in_mcu_flashing;   // for disabling slip during MCU flashing
 
@@ -134,7 +134,7 @@ telnetUnwrap(serbridgeConnData *conn, uint8_t *inBuf, int len)
 #ifdef SERBR_DBG
           os_printf("Telnet: reset gpio%d\n", mcu_reset_pin);
 #endif
-          GPIO_OUTPUT_SET(mcu_reset_pin, 0);
+          GPIO_OUTPUT_SET(mcu_reset_pin, 0 ^ mcu_reset_inverted);
           os_delay_us(100L);
         }
 #ifdef SERBR_DBG
@@ -143,7 +143,7 @@ telnetUnwrap(serbridgeConnData *conn, uint8_t *inBuf, int len)
         break;
       case DTR_OFF:
         if (mcu_reset_pin >= 0) {
-          GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+          GPIO_OUTPUT_SET(mcu_reset_pin, 1 ^ mcu_reset_inverted);
           os_delay_us(100L);
         }
         break;
@@ -265,9 +265,9 @@ serbridgeReset()
 #ifdef SERBR_DBG
     os_printf("MCU reset gpio%d\n", mcu_reset_pin);
 #endif
-    GPIO_OUTPUT_SET(mcu_reset_pin, 0);
+    GPIO_OUTPUT_SET(mcu_reset_pin, 0 ^ mcu_reset_inverted);
     os_delay_us(2000L); // esp8266 needs at least 1ms reset pulse, it seems...
-    GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+    GPIO_OUTPUT_SET(mcu_reset_pin, 1 ^ mcu_reset_inverted);
   }
 #ifdef SERBR_DBG
   else { os_printf("MCU reset: no pin\n"); }
@@ -328,11 +328,11 @@ serbridgeRecvCb(void *arg, char *data, unsigned short len)
     os_delay_us(2*1000L); // time for os_printf to happen
 #endif
     // send reset to arduino/ARM, send "ISP" signal for the duration of the programming
-    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 0);
+    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 0 ^ mcu_reset_inverted);
     os_delay_us(100L);
     if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 0);
     os_delay_us(2000L);
-    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1 ^ mcu_reset_inverted);
     //os_delay_us(100L);
     //if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 1);
     os_delay_us(1000L); // wait a millisecond before writing to the UART below
@@ -496,9 +496,9 @@ serbridgeDisconCb(void *arg)
   if (conn->conn_mode == cmPGM && mcu_reset_pin >= 0) {
     if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 1);
     os_delay_us(100L);
-    GPIO_OUTPUT_SET(mcu_reset_pin, 0);
+    GPIO_OUTPUT_SET(mcu_reset_pin, 0 ^ mcu_reset_inverted);
     os_delay_us(100L);
-    GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+    GPIO_OUTPUT_SET(mcu_reset_pin, 1 ^ mcu_reset_inverted);
   }
   conn->conn = NULL;
 }
@@ -556,10 +556,11 @@ void ICACHE_FLASH_ATTR
 serbridgeInitPins()
 {
   mcu_reset_pin = flashConfig.reset_pin;
+  mcu_reset_inverted = flashConfig.reset_inverted;
   mcu_isp_pin = flashConfig.isp_pin;
 #ifdef SERBR_DBG
-  os_printf("Serbridge pins: reset=%d isp=%d swap=%d\n",
-      mcu_reset_pin, mcu_isp_pin, flashConfig.swap_uart);
+  os_printf("Serbridge pins: reset=%d isp=%d swap=%d reset_inverted=%d\n",
+      mcu_reset_pin, mcu_isp_pin, flashConfig.swap_uart, mcu_reset_inverted);
 #endif
 
   if (flashConfig.swap_uart) {
@@ -580,7 +581,7 @@ serbridgeInitPins()
 
   // set both pins to 1 before turning them on so we don't cause a reset
   if (mcu_isp_pin >= 0)   GPIO_OUTPUT_SET(mcu_isp_pin, 1);
-  if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+  if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1 ^ mcu_reset_inverted);
   // switch pin mux to make these pins GPIO pins
   if (mcu_reset_pin >= 0) makeGpio(mcu_reset_pin);
   if (mcu_isp_pin >= 0)   makeGpio(mcu_isp_pin);

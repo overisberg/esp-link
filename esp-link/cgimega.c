@@ -757,9 +757,9 @@ static void ICACHE_FLASH_ATTR megaTimerCB(void *arg) {
       initPacket();
 
       // DBG("Reset pin %d to LOW ...", flashConfig.reset_pin);
-      GPIO_OUTPUT_SET(flashConfig.reset_pin, 0);
+      GPIO_OUTPUT_SET(flashConfig.reset_pin, 0 ^ flashConfig.reset_inverted);
       os_delay_us(2000L);	// Keep reset line low for 2 ms
-      GPIO_OUTPUT_SET(flashConfig.reset_pin, 1);
+      GPIO_OUTPUT_SET(flashConfig.reset_pin, 1 ^ flashConfig.reset_inverted);
       // DBG(" and up again.\n");
 
       os_delay_us(2000L);	// Now wait an additional 2 ms before sending packets
