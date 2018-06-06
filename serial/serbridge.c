@@ -545,11 +545,11 @@ serbridgeConnectCb(void *arg)
     os_delay_us(2*1000L); // time for os_printf to happen
 #endif
     // send reset to arduino/ARM, send "ISP" signal for the duration of the programming
-    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 0);
+    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 0 ^ mcu_reset_inverted);
     os_delay_us(100L);
     if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 0);
     os_delay_us(2000L);
-    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1 ^ mcu_reset_inverted);
     //os_delay_us(100L);
     //if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 1);
     os_delay_us(1000L); // wait a millisecond before writing to the UART below
