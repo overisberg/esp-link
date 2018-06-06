@@ -539,8 +539,24 @@ serbridgeConnectCb(void *arg)
   connData[i].readytosend = true;
   connData[i].conn_mode = cmInit;
   // if it's the second port we start out in programming mode
-  if (conn->proto.tcp->local_port == serbridgeConn2.proto.tcp->local_port)
-    connData[i].conn_mode = cmPGMInit;
+  if (conn->proto.tcp->local_port == serbridgeConn2.proto.tcp->local_port) {
+#ifdef SERBR_DBG
+    os_printf("MCU Reset=gpio%d ISP=gpio%d\n", mcu_reset_pin, mcu_isp_pin);
+    os_delay_us(2*1000L); // time for os_printf to happen
+#endif
+    // send reset to arduino/ARM, send "ISP" signal for the duration of the programming
+    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 0);
+    os_delay_us(100L);
+    if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 0);
+    os_delay_us(2000L);
+    if (mcu_reset_pin >= 0) GPIO_OUTPUT_SET(mcu_reset_pin, 1);
+    //os_delay_us(100L);
+    //if (mcu_isp_pin >= 0) GPIO_OUTPUT_SET(mcu_isp_pin, 1);
+    os_delay_us(1000L); // wait a millisecond before writing to the UART below
+    connData[i].conn_mode = cmPGM;
+    in_mcu_flashing++; // disable SLIP so it doesn't interfere with flashing
+    serledFlash(50); // short blink on serial LED
+  }
 
   espconn_regist_recvcb(conn, serbridgeRecvCb);
   espconn_regist_disconcb(conn, serbridgeDisconCb);
