@@ -15,11 +15,28 @@ show_help() {
 Usage: ${0##*/} [-options...] hostname sketch.hex
 Flash the AVR running optiboot attached to esp-link with the sketch.
   -v                    Be verbose
+  -p <partno>           Specify AVR device
   -h                    show this help
 
 Example: ${0##*/} -v esp-link mysketch.hex
          ${0##*/} 192.168.4.1 mysketch.hex
+         ${0##*/} -p atmega2560 192.168.4.1 mysketch.hex
+
+Set mDNS Service Name to "arduino" and add the following line to hardware/arduino/avr/platform.txt if you want to use ${0##*/} from Arduino IDE:
+tools.avrdude.upload.network_pattern=$(readlink -e $0) -p {build.mcu} {serial.port} {build.path}/{build.project_name}.hex
 EOT
+}
+
+cleanup_and_exit() {
+  ret=$1
+
+  # ===== Reset baud rate
+  if [ -n "$baud" ]; then
+    [[ -n "$verbose" ]] && echo "Reset baud rate with http://$hostname/console/baud?rate=$baud" >&2
+    curl -m 10 -s "http://$hostname/console/baud?rate=$baud" >/dev/null
+  fi
+
+  exit $ret
 }
 
 if ! which curl >/dev/null; then
@@ -32,15 +49,21 @@ start=`date +%s`
 # ===== Parse arguments
 
 verbose=
+baud=
+pgm=pgm
 
-while getopts "hvx:" opt; do
+while getopts "hvp:" opt; do
   case "$opt" in
     h) show_help; exit 0 ;;
     v) verbose=1 ;;
-    x) foo="$OPTARG" ;;
+    p) part="$OPTARG" ;;
     '?') show_help >&2; exit 1 ;;
   esac
 done
+
+if [ "$part" = "atmega2560" ]; then
+    pgm=pgmmega
+fi
 
 # Shift off the options and optional --.
 shift "$((OPTIND-1))"
@@ -64,21 +87,38 @@ if [[ ! -r "$hex" ]]; then
   exit 1
 fi
 
+# ===== Get current baud rate if pgm is pgmmega
+if [ $pgm = pgmmega ]; then
+  [[ -n "$verbose" ]] && echo "Get current baud rate with http://$hostname/console/baud" >&2
+  ret=$(curl -m 10 -s "http://$hostname/console/baud")
+  if [[ $ret == '{"rate": '* ]]; then
+    baud=${ret#*: }
+    baud=${baud%\}*}
+  fi
+  # ===== Set baud rate to 115200
+  if [ "$baud" != "115200" ]; then
+    [[ -n "$verbose" ]] && echo "Set baud rate with http://$hostname/console/baud?rate=115200" >&2
+    curl -m 10 -s "http://$hostname/console/baud?rate=115200" >/dev/null
+  else
+    baud=
+  fi
+fi
+
 # ===== Get AVR in sync
 
-[[ -n "$verbose" ]] && echo "Resetting AVR with http://$hostname/pgm/sync" >&2
+[[ -n "$verbose" ]] && echo "Resetting AVR with http://$hostname/$pgm/sync" >&2
 v=; [[ -n "$verbose" ]] && v=-v
-sync=`curl -m 10 $v -s -w '%{http_code}' -XPOST "http://$hostname/pgm/sync"`
+sync=`curl -m 10 $v -s -w '%{http_code}' -XPOST "http://$hostname/$pgm/sync"`
 if [[ $? != 0 || "$sync" != 204 ]]; then
   echo "Error resetting AVR" >&2
-  exit 1
+  cleanup_and_exit 1
 fi
 
 while true; do
-  sync=`curl -m 10 $v -s "http://$hostname/pgm/sync"`
+  sync=`curl -m 10 $v -s "http://$hostname/$pgm/sync"`
   if [[ $? != 0 ]]; then
     echo "Error checking sync" >&2
-    exit 1
+    cleanup_and_exit 1
   fi
   case "$sync" in
   SYNC*)
@@ -89,7 +129,7 @@ while true; do
     ;;
   *)
     echo "Error checking sync: $sync" >&2
-    exit 1
+    cleanup_and_exit 1
     ;;
   esac
   sleep 0.1
@@ -98,13 +138,13 @@ done
 # ===== Send HEX file
 
 [[ -n "$verbose" ]] && echo "Sending HEX file for programming" >&2
-sync=`curl -m 10 $v -s -g -d "@$hex" "http://$hostname/pgm/upload"`
+sync=`curl -m 10 $v -s -g -d "@$hex" "http://$hostname/$pgm/upload"`
 echo $sync
 if [[ $? != 0 || ! "$sync" =~ ^Success ]]; then
   echo "Error programming AVR" >&2
-  exit 1
+  cleanup_and_exit 1
 fi
 
 sec=$(( `date +%s` - $start ))
 echo "Success, took $sec seconds" >&2
-exit 0
+cleanup_and_exit 0
