@@ -8,6 +8,7 @@
 #ifdef SYSLOG
 #include "syslog.h"
 #endif
+#include "security.h"
 
 #ifdef CGISERVICES_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
@@ -29,6 +30,10 @@ static ETSTimer reassTimer;
 // Cgi to update system info (name/description)
 int ICACHE_FLASH_ATTR cgiSystemSet(HttpdConnData *connData) {
   if (connData->conn == NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to change configuration");
+    return HTTPD_CGI_DONE;
+  }
 
   int8_t n = getStringArg(connData, "name", flashConfig.hostname, sizeof(flashConfig.hostname));
   int8_t d = getStringArg(connData, "description", flashConfig.sys_descr, sizeof(flashConfig.sys_descr));
@@ -146,6 +151,10 @@ int ICACHE_FLASH_ATTR cgiServicesInfo(HttpdConnData *connData) {
 
 int ICACHE_FLASH_ATTR cgiServicesSet(HttpdConnData *connData) {
   if (connData->conn == NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to change configuration");
+    return HTTPD_CGI_DONE;
+  }
 
   int8_t syslog = 0;
 

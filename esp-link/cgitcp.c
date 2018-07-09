@@ -5,6 +5,7 @@
 #include "cgi.h"
 #include "config.h"
 #include "cgitcp.h"
+#include "security.h"
 
 // Cgi to return TCP client settings
 int ICACHE_FLASH_ATTR cgiTcpGet(HttpdConnData *connData) {
@@ -24,6 +25,10 @@ int ICACHE_FLASH_ATTR cgiTcpGet(HttpdConnData *connData) {
 // Cgi to change choice of pin assignments
 int ICACHE_FLASH_ATTR cgiTcpSet(HttpdConnData *connData) {
 	if (connData->conn==NULL) return HTTPD_CGI_DONE;
+	if (!okToUpdateConfig()) {
+	  errorResponse(connData, 400, "Security pin have to be low to change configuration");
+	  return HTTPD_CGI_DONE;
+	}
 
 	// Handle tcp_enable flag
 	char buff[128];

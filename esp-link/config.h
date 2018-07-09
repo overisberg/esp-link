@@ -42,6 +42,7 @@ typedef struct {
   int8_t   parity;
   int8_t   stop_bits;
   uint8_t  reset_inverted;             // Invert reset pin if set to 1
+  int8_t   security_pin;               // Pin low = you are allowed to change configuration
 } FlashConfig;
 extern FlashConfig flashConfig;
 

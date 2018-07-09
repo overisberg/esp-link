@@ -15,6 +15,7 @@ char *mqttState(void) {
 #include "status.h"
 #include "mqtt_client.h"
 #include "cgimqtt.h"
+#include "security.h"
 
 #ifdef CGIMQTT_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
@@ -77,6 +78,10 @@ int ICACHE_FLASH_ATTR cgiMqttGet(HttpdConnData *connData) {
 
 int ICACHE_FLASH_ATTR cgiMqttSet(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE;
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to change configuration");
+    return HTTPD_CGI_DONE;
+  }
 
   // handle MQTT server settings
   int8_t mqtt_server = 0; // accumulator for changes/errors

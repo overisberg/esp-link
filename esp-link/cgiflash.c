@@ -16,6 +16,7 @@ Some flash handling cgi routines. Used for reading the existing flash and updati
 #include <esp8266.h>
 #include "cgi.h"
 #include "cgiflash.h"
+#include "security.h"
 
 #ifdef CGIFLASH_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
@@ -68,6 +69,10 @@ int ICACHE_FLASH_ATTR cgiGetFirmwareNext(HttpdConnData *connData) {
 //===== Cgi that allows the firmware to be replaced via http POST
 int ICACHE_FLASH_ATTR cgiUploadFirmware(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to upload firmware");
+    return HTTPD_CGI_DONE;
+  }
 
   if (!canOTA()) {
     errorResponse(connData, 400, flash_too_small);
@@ -145,6 +150,10 @@ static ETSTimer flash_reboot_timer;
 // Handle request to reboot into the new firmware
 int ICACHE_FLASH_ATTR cgiRebootFirmware(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to reboot firmware");
+    return HTTPD_CGI_DONE;
+  }
 
   if (!canOTA()) {
     errorResponse(connData, 400, flash_too_small);

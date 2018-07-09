@@ -38,6 +38,7 @@
 #include "serbridge.h"
 #include "serled.h"
 #include "pgmshared.h"
+#include "security.h"
 
 #define INIT_DELAY     150   // wait this many millisecs before sending anything
 #define BAUD_INTERVAL  600   // interval after which we change baud rate
@@ -171,6 +172,10 @@ static void ICACHE_FLASH_ATTR appendPretty(char *buf, int max, char *raw, int ra
 int ICACHE_FLASH_ATTR cgiMegaSync(HttpdConnData *connData) {
   if (connData->conn==NULL)
     return HTTPD_CGI_DONE;	// Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program mega");
+    return HTTPD_CGI_DONE;
+  }
 
   // check that we know the reset pin, else error out with that
   if (flashConfig.reset_pin < 0) {
@@ -543,6 +548,10 @@ int ICACHE_FLASH_ATTR cgiMegaData(HttpdConnData *connData) {
     return HTTPD_CGI_DONE; // Connection aborted. Clean up.
   if (!optibootData)
     if (debug()) DBG("OB pgm: state=%d postLen=%d\n", progState, connData->post->len);
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program mega");
+    return HTTPD_CGI_DONE;
+  }
 
   // check that we have sync
   if (errMessage[0] || progState < stateProg) {
@@ -958,6 +967,11 @@ int ICACHE_FLASH_ATTR cgiMegaRead(HttpdConnData *connData) {
   int p, i, len;
   char *buffer, s[12];
 
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program mega");
+    return HTTPD_CGI_DONE;
+  }
+
   debug_cnt++;
 
   // sscanf(connData->url + 14, "0x%x,%x", &p, &len);
@@ -1083,6 +1097,11 @@ int ICACHE_FLASH_ATTR readFuse(char fuse) {
 int ICACHE_FLASH_ATTR cgiMegaFuse(HttpdConnData *connData) {
   DBG("cgiMegaFuse %s\n", connData->url);
 
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program mega");
+    return HTTPD_CGI_DONE;
+  }
+
   // decode url
   char fuse = 'l';
 
@@ -1111,6 +1130,11 @@ int ICACHE_FLASH_ATTR cgiMegaFuse(HttpdConnData *connData) {
  * synchronized communication with it.
  */
 int ICACHE_FLASH_ATTR cgiMegaRebootMCU(HttpdConnData *connData) {
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program mega");
+    return HTTPD_CGI_DONE;
+  }
+
   sendRebootMCUQuery();
   readRebootMCUReply();
 

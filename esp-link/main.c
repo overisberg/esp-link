@@ -32,6 +32,7 @@
 #include "log.h"
 #include "gpio.h"
 #include "cgiservices.h"
+#include "security.h"
 
 #ifdef WEBSERVER
 #include "web-server.h"
@@ -182,6 +183,8 @@ user_init(void) {
   // Status LEDs
   statusInit();
   serledInit();
+  // Security
+  securityInit();
   // Wifi
   wifiInit();
   // init the flash filesystem with the html stuff

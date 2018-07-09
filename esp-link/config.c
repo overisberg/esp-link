@@ -35,6 +35,7 @@ FlashConfig flashDefault = {
   .parity	= NONE_BITS,
   .stop_bits	= ONE_STOP_BIT,
   .reset_inverted = 0,
+  .security_pin   = 0,
 };
 
 typedef union {
@@ -72,7 +73,11 @@ static void memDump(void *addr, int len) {
 bool ICACHE_FLASH_ATTR configSave(void) {
   FlashFull ff;
   os_memset(&ff, 0, sizeof(ff));
+  // Store security_pin as pin number +1 so 0 = Disabled and 1 = pin 0
+  flashConfig.security_pin++;
   os_memcpy(&ff, &flashConfig, sizeof(FlashConfig));
+  // Restore correct value for security_pin after it has been copied to ff
+  flashConfig.security_pin--;
   uint32_t seq = ff.fc.seq+1;
   // erase secondary
   uint32_t addr = flashAddr() + (1-flash_pri)*FLASH_SECT;
@@ -143,6 +148,7 @@ bool ICACHE_FLASH_ATTR configRestore(void) {
     os_memcpy(&flashConfig.mqtt_clientid, &flashConfig.hostname, os_strlen(flashConfig.hostname));
     os_memcpy(&flashConfig.mqtt_status_topic, &flashConfig.hostname, os_strlen(flashConfig.hostname));
     flash_pri = 0;
+
     return false;
   }
   // copy good one into global var
@@ -161,6 +167,8 @@ bool ICACHE_FLASH_ATTR configRestore(void) {
       flashConfig.parity = flashDefault.parity;
       flashConfig.stop_bits = flashDefault.stop_bits;
   }
+  // The value for security_pin are stored as pin number +1 so 0 = Disabled and 1 = pin 0
+  flashConfig.security_pin--;
   return true;
 }
 

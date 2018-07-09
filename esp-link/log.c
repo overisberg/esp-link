@@ -5,6 +5,7 @@
 #include "cgi.h"
 #include "config.h"
 #include "log.h"
+#include "security.h"
 
 #ifdef LOG_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
@@ -133,6 +134,10 @@ static char *dbg_mode[] = { "auto", "off", "on0", "on1" };
 int ICACHE_FLASH_ATTR
 ajaxLogDbg(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to change configuration");
+    return HTTPD_CGI_DONE;
+  }
   char buff[512];
   int len, status = 400;
   len = httpdFindArg(connData->getArgs, "mode", buff, sizeof(buff));

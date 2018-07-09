@@ -20,6 +20,7 @@ Cgi/template routines for the /wifi url.
 #include "status.h"
 #include "config.h"
 #include "log.h"
+#include "security.h"
 
 #ifdef CGIWIFI_DBG
 #define DBG(format, ...) do { os_printf(format, ## __VA_ARGS__); } while(0)
@@ -484,6 +485,10 @@ int ICACHE_FLASH_ATTR cgiWiFiSpecial(HttpdConnData *connData) {
   char gateway[20];
 
   if (connData->conn==NULL) return HTTPD_CGI_DONE;
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to change configuration");
+    return HTTPD_CGI_DONE;
+  }
 
   // get args and their string lengths
   int dl = httpdFindArg(connData->getArgs, "dhcp", dhcp, sizeof(dhcp));

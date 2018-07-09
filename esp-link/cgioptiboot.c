@@ -14,6 +14,7 @@
 #include "serbridge.h"
 #include "mqtt_cmd.h"
 #include "serled.h"
+#include "security.h"
 
 #include "pgmshared.h"
 
@@ -107,6 +108,10 @@ void ICACHE_FLASH_ATTR appendPretty(char *buf, int max, char *raw, int rawLen) {
 //===== Cgi to reset AVR and get Optiboot into sync
 int ICACHE_FLASH_ATTR cgiOptibootSync(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program avr");
+    return HTTPD_CGI_DONE;
+  }
 
   // check that we know the reset pin, else error out with that
   if (flashConfig.reset_pin < 0) {
@@ -164,6 +169,10 @@ int ICACHE_FLASH_ATTR cgiOptibootSync(HttpdConnData *connData) {
 //===== Cgi to write firmware to Optiboot, requires prior sync call
 int ICACHE_FLASH_ATTR cgiOptibootData(HttpdConnData *connData) {
   if (connData->conn==NULL) return HTTPD_CGI_DONE; // Connection aborted. Clean up.
+  if (!okToUpdateConfig()) {
+    errorResponse(connData, 400, "Security pin have to be low to program avr");
+    return HTTPD_CGI_DONE;
+  }
   if (!optibootData)
     DBG("OB pgm: state=%d postLen=%d\n", progState, connData->post->len);
 
